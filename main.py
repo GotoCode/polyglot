@@ -110,13 +110,17 @@ def print_scores(scores, limit=None):
     WARNING: this function modifies the passed-in scores max-heap
     '''
 
-    limit = limit or 10
+    limit = limit if (limit is not None) else 10
 
     print('\n-- suggested languages --\n')
     
     for i in range(limit):
 
-        score, name = scores.pop()
+        item = scores.pop()
+
+        if item is None: break
+
+        score, name = item
 
         print('{N}. {L} ({S})'.format(N=i+1, L=name, S=score))
 
