@@ -6,9 +6,12 @@
 # 
 
 import re
+import sys
 
 import requests
 from bs4 import BeautifulSoup
+
+from max_heap import MaxHeap
 
 # types of programming paradigms
 PARADIGMS = ['imperative', 'object-oriented', 'functional', 'procedural',
@@ -60,6 +63,65 @@ def row_to_set(row):
     
     return (name, features)
 
+def feature_diff(reference_set, other_set):
+    '''
+    given a reference and comparison set, this function computes
+    a 'distance metric' between the two sets of features
+    
+    NOTE: currently this function implements the set equivalent
+          of the Hamming distance metric
+    '''
+
+    return len(reference_set ^ other_set)
+
+def compute_scores(reference, languages):
+    '''
+    given a reference language and a dictionary mapping each language to a
+    list of langauge features (e.g. paradigm, domains, etc.), this function
+    returns a MaxHeap object containing (score, language) pairs, where the
+    score is computed using some kind of comparison function
+    '''
+
+    res = MaxHeap()
+
+    # reference langauge does not exist
+    if reference not in languages:
+
+        return MaxHeap()
+
+    # retrieve set of features for reference language
+    ref_features = languages[reference]
+
+    # compute "comparison score" for each programming language
+    for name, features in languages.items():
+
+        score = feature_diff(ref_features, features)
+
+        res.push(score, name)
+
+    return res
+
+def print_scores(scores, limit=None):
+    '''
+    given a max-heap containing (score, language) pairs,
+    this function prints out a list of suggested "learn next"
+    languages, using the (optional) limit argument to limit results
+
+    WARNING: this function modifies the passed-in scores max-heap
+    '''
+
+    limit = limit or 10
+
+    print('\n-- suggested languages --\n')
+    
+    for i in range(limit):
+
+        score, name = scores.pop()
+
+        print('{N}. {L} ({S})'.format(N=i+1, L=name, S=score))
+
+    print()
+
 # retrieve "programming language comparison" table from Wikipedia
 r = requests.get('https://en.wikipedia.org/wiki/Comparison_of_programming_languages')
 
@@ -68,3 +130,16 @@ soup = BeautifulSoup(r.text, 'html.parser')
 
 # extract the (name, features) representation for each programming language
 all_rows = soup.find('table', class_='wikitable').find_all('tr')[1:-1]
+
+# convert the all_rows list into a dictionary mapping name to features
+lang_info = {s[0] : s[1] for s in map(row_to_set, all_rows)}
+
+# prompt user to enter reference language for feature comparisons
+ref_lang = input('What is your primary programming language? ')
+
+# create max-heap containing relative "comparison scores" between
+# each stored language and the given reference language
+scores = compute_scores(ref_lang, lang_info)
+
+# print out list of "Top 10" suggested languages 
+print_scores(scores)
