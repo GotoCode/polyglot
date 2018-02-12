@@ -74,6 +74,63 @@ def feature_diff(reference_set, other_set):
 
     return len(reference_set ^ other_set)
 
+def get_lang_info(rows, tiobe_only=False):
+    '''
+    given a list of rows (BS4 Tag objects) in the Wikipedia languages table,
+    this function returns a dictionary mapping each programming language to
+    a set of key features of that langauge (e.g. paradigm, use cases, etc.)
+
+    if the tiobe_only flag is set, this function only returns information for
+    languages which are contained in the top-50 list on the TIOBE index 
+    '''
+
+    tiobe_set = set()
+
+    # extract set of top-50 programming languages on TIOBE index
+    if tiobe_only:
+
+        # retrieve TIOBE list and construct parse tree
+        r = requests.get('https://www.tiobe.com/tiobe-index/')
+        s = BeautifulSoup(r.text, 'html.parser')
+
+        # retrieve all tables in webpage
+        tables = s.find_all('table')
+
+        top_20_rows = tables[0].tbody.find_all('tr')
+        bottom_30_rows = tables[1].tbody.find_all('tr')
+
+        # process table of top-20 TIOBE languages
+        for row in top_20_rows:
+
+            name = str(row.find_all('td')[3].string)
+
+            tiobe_set.add(name)
+
+        # process table of bottom-30 TIOBE languages
+        for row in bottom_30_rows:
+
+            name = str(row.find_all('td')[1].string)
+
+            tiobe_set.add(name)
+
+    info = {}
+
+    # construct final dictionary containing (name, features) pairs
+    for n, f in map(row_to_set, rows):
+
+        # add only TIOBE-listed languages, if the tiobe_only flag is set
+        if tiobe_only:
+
+            if n in tiobe_set:
+
+                info[n] = f
+
+        else:
+            
+            info[n] = f
+
+    return info #{s[0] : s[1] for s in map(row_to_set, rows)}
+
 def compute_scores(reference, languages):
     '''
     given a reference language and a dictionary mapping each language to a
@@ -136,7 +193,7 @@ soup = BeautifulSoup(r.text, 'html.parser')
 all_rows = soup.find('table', class_='wikitable').find_all('tr')[1:-1]
 
 # convert the all_rows list into a dictionary mapping name to features
-lang_info = {s[0] : s[1] for s in map(row_to_set, all_rows)}
+lang_info = get_lang_info(all_rows, tiobe_only=True)
 
 # prompt user to enter reference language for feature comparisons
 ref_lang = input('What is your primary programming language? ')
