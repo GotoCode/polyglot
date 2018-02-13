@@ -67,12 +67,9 @@ def feature_diff(reference_set, other_set):
     '''
     given a reference and comparison set, this function computes
     a 'distance metric' between the two sets of features
-    
-    NOTE: currently this function implements the set equivalent
-          of the Hamming distance metric
     '''
 
-    return len(reference_set ^ other_set)
+    return len(other_set ^ reference_set)
 
 def get_lang_info(rows, tiobe_only=False):
     '''
@@ -131,7 +128,7 @@ def get_lang_info(rows, tiobe_only=False):
 
     return info #{s[0] : s[1] for s in map(row_to_set, rows)}
 
-def compute_scores(reference, languages):
+def compute_scores(references, languages):
     '''
     given a reference language and a dictionary mapping each language to a
     list of langauge features (e.g. paradigm, domains, etc.), this function
@@ -141,14 +138,19 @@ def compute_scores(reference, languages):
 
     res = MaxHeap()
 
-    # reference langauge does not exist
-    if reference not in languages:
-
-        return MaxHeap()
-
     # retrieve set of features for reference language
-    ref_features = languages[reference]
+    ref_features = set()
 
+    # update the set of reference features to
+    # be the union of all known languages
+    for lang in references:
+
+        if lang in languages:
+
+            f = languages[lang]
+            
+            ref_features.update(f)
+    
     # compute "comparison score" for each programming language
     for name, features in languages.items():
 
@@ -158,7 +160,7 @@ def compute_scores(reference, languages):
 
     return res
 
-def print_scores(scores, limit=None):
+def print_scores(scores, limit=None, refs=[]):
     '''
     given a max-heap containing (score, language) pairs,
     this function prints out a list of suggested "learn next"
@@ -170,8 +172,10 @@ def print_scores(scores, limit=None):
     limit = limit if (limit is not None) else 10
 
     print('\n-- suggested languages --\n')
+
+    i = 0
     
-    for i in range(limit):
+    while i < limit:
 
         item = scores.pop()
 
@@ -179,7 +183,12 @@ def print_scores(scores, limit=None):
 
         score, name = item
 
-        print('{N}. {L} ({S})'.format(N=i+1, L=name, S=score))
+        if name in refs: continue
+
+        #print('{N}. {L} ({S})'.format(N=i+1, L=name, S=score))
+        print('- {}'.format(name))
+
+        i += 1
 
     print()
 
@@ -195,12 +204,28 @@ all_rows = soup.find('table', class_='wikitable').find_all('tr')[1:-1]
 # convert the all_rows list into a dictionary mapping name to features
 lang_info = get_lang_info(all_rows, tiobe_only=True)
 
-# prompt user to enter reference language for feature comparisons
-ref_lang = input('What is your primary programming language? ')
+# list of reference languages for feature comparisons
+ref_langs = []
+
+# prompt user to enter main reference language
+main_lang = input('What is your primary programming language? ')
+
+ref_langs.append(main_lang)
+
+# prompt user to enter additional reference langauges, if possible
+has_next = input('Do you know another language? ')
+
+while 'yes' in has_next.lower():
+
+    lang = input('What is this language called? ')
+
+    ref_langs.append(lang)
+
+    has_next = input('Do you know another language? ')
 
 # create max-heap containing relative "comparison scores" between
-# each stored language and the given reference language
-scores = compute_scores(ref_lang, lang_info)
+# each stored language and the given reference languages
+scores = compute_scores(ref_langs, lang_info)
 
 # print out list of "Top 10" suggested languages 
-print_scores(scores)
+print_scores(scores, limit=10, refs=ref_langs)
