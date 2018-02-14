@@ -128,12 +128,15 @@ def get_lang_info(rows, tiobe_only=False):
 
     return info #{s[0] : s[1] for s in map(row_to_set, rows)}
 
-def compute_scores(references, languages):
+def compute_scores(references, languages, disliked=[]):
     '''
     given a reference language and a dictionary mapping each language to a
-    list of langauge features (e.g. paradigm, domains, etc.), this function
+    list of language features (e.g. paradigm, domains, etc.), this function
     returns a MaxHeap object containing (score, language) pairs, where the
     score is computed using some kind of comparison function
+
+    this function will exclude any languages contained in the disliked
+    list, which helps with cutting down the list of unwanted suggestions
     '''
 
     res = MaxHeap()
@@ -150,6 +153,18 @@ def compute_scores(references, languages):
             f = languages[lang]
             
             ref_features.update(f)
+
+    # filter out any unwanted/disliked languages from the list
+    for lang in disliked:
+
+        # create a copy of the dict keys, to allow for in-place deletion
+        keys = list(languages.keys())
+
+        for other_lang in keys:
+
+            if lang.lower() == other_lang.lower():
+
+                del languages[other_lang]
     
     # compute "comparison score" for each programming language
     for name, features in languages.items():
@@ -185,7 +200,6 @@ def print_scores(scores, limit=None, refs=[]):
 
         if name in refs: continue
 
-        #print('{N}. {L} ({S})'.format(N=i+1, L=name, S=score))
         print('- {}'.format(name))
 
         i += 1
@@ -219,13 +233,26 @@ while 'yes' in has_next.lower():
 
     lang = input('What is this language called? ')
 
-    ref_langs.append(lang)
+    ref_langs.append(lang.strip())
 
     has_next = input('Do you know another language? ')
 
+# prompt user to enter any unwanted/disliked languages, if applicable
+disliked = []
+
+has_next = input('Do you want to avoid any language? ')
+
+while 'yes' in has_next.lower():
+
+    lang = input('What language do you want to avoid? ')
+
+    disliked.append(lang.strip())
+
+    has_next = input('Do you want to avoid any other language? ')
+
 # create max-heap containing relative "comparison scores" between
 # each stored language and the given reference languages
-scores = compute_scores(ref_langs, lang_info)
+scores = compute_scores(ref_langs, lang_info, disliked)
 
 # print out list of "Top 10" suggested languages 
 print_scores(scores, limit=10, refs=ref_langs)
